@@ -20,5 +20,3 @@ The channel has been tested on the following clients, running off Mac OS X Plex 
 * Mac OS X Plex Home Theatre
 
 It should work on anything that's not listed here, but if not, post an issue and I'll try and fix it when I can.
-
-N.B. It took a while for the streams to get going on my Galaxy Nexus Android device, so you might need to have some patience
