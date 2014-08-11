@@ -42,6 +42,9 @@ def Start():
     ObjectContainer.title1      = TITLE
     ObjectContainer.art         = R(ART)
     
+    # Reset the dictionary that contains the login status
+    Dict.Reset()
+    
 ################################################################################
 # Build the main menu
 ################################################################################  
@@ -62,7 +65,7 @@ def MainMenu():
         # Loop through each channel to produce an EpisodeObject
         for CHANNEL in CHANNEL_LIST:
             TITLE                   = CHANNEL[0]
-            URL                = CHANNEL[1]
+            URL                     = CHANNEL[1]
 
             # Passes off to URL service to get channel episode object to add to menu
             MAIN_MENU.add(
@@ -206,7 +209,7 @@ def CreateChannelEpisodeObject(TITLE,URL,INCLUDE_CONTAINER=False):
 ################################################################################
 # Authenticate the user
 ################################################################################        
-def AuthenticateUser():
+def AuthenticateUser():    
     # Create the login URL
     LOGIN_URL                   = URL_BASE + URL_LOGIN
     
