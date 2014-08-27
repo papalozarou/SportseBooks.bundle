@@ -15,14 +15,9 @@ ICON                            = "icon-default.png"
 # Below values lifted from FilmOn plugin
 USER_AGENT                      = 'Mozilla/5.0 (iPad; CPU OS 6_0 like Mac OS X) AppleWebKit/536.26 (KHTML, like Gecko) Version/6.0 Mobile/10A5376e Safari/8536.25'
 REFERER                         = "http://www.sportsebooks.eu/"
-CUSTOM_HEADERS                  = {'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-                                    'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.3',
-                                    'Accept-Encoding': 'gzip,deflate,sdch',
-                                    'Accept-Language': 'en-US,en;q=0.8,es;q=0.6',
-                                    'Cache-Control': 'max-age=0',
-                                    'Connection': 'keep-alive'}
 
-URL_BASE                        = "http://www.sportsebooks.eu/"
+# URLs for sportsebooks.eu site
+URL_BASE                        = REFERER
 URL_LOGIN                       = "amember/login"
 URL_MEMBERS                     = "membersarea/"
 URL_CHANNELMENU                 = "channelmenuios.html"
@@ -30,137 +25,210 @@ URL_CHANNELMENU                 = "channelmenuios.html"
 # Global variable for channels
 CHANNEL_LIST                    = []
 
+# THIS IS ONLY USED FOR LOGGING – DELETE
+STARS                           = "************"
+
 ################################################################################
 # Initialise the channel
 ################################################################################
-def Start(): 
-    # Set header and referer
-    HTTP.Headers["User-agent"]  = USER_AGENT
-    HTTP.Headers["Referer"]     = REFERER
-       
+def Start():
     # Set title and art
     ObjectContainer.title1      = TITLE
     ObjectContainer.art         = R(ART)
+
+    # Delete the dictionary that contains the login status
+    ClearLoginStatus()
     
-    # Reset the dictionary that contains the login status
-    Dict.Reset()
+    # Set header for all HTTP requests
+    #
+    # N.B. We set referer as videos are hosted on another domain
+    HTTP.Headers["User-agent"]  = USER_AGENT
+    HTTP.Headers["Referer"]     = REFERER
     
 ################################################################################
-# Build the main menu
-################################################################################  
-@handler(PREFIX, TITLE, thumb = ICON, art = ART)
-
-def MainMenu():    
-    # Log the user in initially
-    AuthenticateUser()
-    
-    # Test to see if user is logged in
+# Clear the login status
+################################################################################
+def ClearLoginStatus():
     if "Login" in Dict:
-        # Open and ObjectContainer for the main menu
-        MAIN_MENU                   = ObjectContainer()
+        del Dict["Login"]
 
-        # Get Channel list
-        CHANNEL_LIST                = GetChannelList()
+    return None
     
-        # Loop through each channel to produce an EpisodeObject
-        for CHANNEL in CHANNEL_LIST:
-            TITLE                   = CHANNEL[0]
-            URL                     = CHANNEL[1]
+################################################################################
+# Alerts and error messages
+################################################################################ 
+# If successful login
+def SuccessLoggedIn():
+    return ObjectContainer(
+        header                  = "Success",
+        message                 = "You're now logged in"
+    )
 
-            # Passes off to URL service to get channel episode object to add to menu
-            MAIN_MENU.add(
-                CreateChannelEpisodeObject(
-                    TITLE,
-                    URL
-                )
-            )
-
-        # Add the preferences object
-        MAIN_MENU.add(
-            PrefsObject(
-                title               = "Preferences",
-                thumb               = R("icon-preferences.png"),
-                summary             = "Enter your username and password\r\nThe plugin will not work without them"
-            )
-        )
+# If user tries to access submenus without logging in
+def ErrorNotLoggedIn():
+    return ObjectContainer(
+         header                 = "You're not logged in",
+         message                = "You need to be logged in to view streams"       
+    )
     
-        return MAIN_MENU
-    else:
-        # Get not logged in alert
-        ERROR_MESSAGE           = ErrorNotLoggedIn()
-        
-        return ERROR_MESSAGE
- 
+# If login error
+def ErrorIncorrectLogin():
+    return ObjectContainer(
+        header                  = "Something went wrong",
+        message                 = "Your username and/or password are incorrect"
+    )
+
+# If one or both of username or password are missing
+def ErrorMissingLogin():
+    return ObjectContainer(
+        header                  = "Something's missing",
+        message                 = "Your username and/or password is missing"
+    )
+
 ################################################################################
 # Validate users preferences (username and password)
-################################################################################  
-def ValidatePrefs(): 
-    # Reset the dictionary that contains the login status
-    Dict.Reset()
-       
-    # Test for username AND password
+################################################################################
+def ValidatePrefs():
+    # Tests for username and password
     if Prefs["username"] and Prefs["password"]:
         # If both are present, authenticate the user
-        AuthenticateUser()
+        AUTHENTICATE            = AuthenticateUser()
         
         # Shows message based on authentication attempt
-        if "Login" in Dict:
+        if AUTHENTICATE is True:
             # Successful login
             ALERT               = SuccessLoggedIn()
+            
         else:
             # Incorrect username or password error
             ALERT               = ErrorIncorrectLogin()
-    else:
-        # Missing username or password error
-        ALERT                   = ErrorMissingLogin()
     
+    else:
+        # Missing username or password
+        ALERT                   = ErrorMissingLogin()
+        
     return ALERT
+
+################################################################################
+#  Authenticate the user
+################################################################################
+def AuthenticateUser():
+    # Construct login URL
+    LOGIN_URL                   = URL_BASE + URL_LOGIN
+    
+    # Page titles when user is logged in (LOGIN_SUCCESS_TITLE) or at login page
+    # (LOGIN_FAILURE_TITLE), regardless of errors
+    LOGIN_SUCCESS_TITLE         = "Sportsebooks"
+    LOGIN_FAILURE_TITLE         = "Please login"
+    
+    # Set the POST data to users login details
+    POST_DATA                   = {
+        "amember_login": Prefs["username"],
+        "amember_pass": Prefs["password"]
+    }
+ 
+    # Grab the HTTP response to login attempt
+    LOGIN_RESPONSE_CONTENT      = HTML.ElementFromURL(url = LOGIN_URL, values = POST_DATA)
+    
+    # Get the title string from the returned response
+    LOGIN_RESPONSE_TITLE        = "".join(LOGIN_RESPONSE_CONTENT.xpath("//title/text()"))
+    
+    # Test to see if we've successfully logged in
+    if LOGIN_RESPONSE_TITLE == LOGIN_SUCCESS_TITLE:
+        Log(STARS + " LOGGED IN " + STARS)
+        # If TITLE of returned page matches success title of pageset Dict["Login"] to True
+        Dict["Login"]           = True
+        
+        # Save the dictionary immediately
+        Dict.Save()
+        
+        return True
+    else:
+        Log(STARS + " NOT LOGGED IN " + STARS)
+        # If we find the word errors within CONTENT, or CONTENT returns null, we
+        # return false
+        return False
  
 ################################################################################
 # Gets a list of channels to iterate over
-################################################################################   
+################################################################################
 def GetChannelList():
     # Check to see if CHANNEL_LIST is already populated, if yes return it, if
     # no construct it.
     if CHANNEL_LIST:
         return CHANNEL_LIST
     else:
-        # Gets the HTML source from the iOS Channel Menu
-        HTML_URL                    = URL_BASE + URL_MEMBERS + URL_CHANNELMENU
+        # The below was a test to see if I could use the JSON feed from the API
+        # That the XBMC version uses.
+        #
+        # URL_CHANNEL_JSON                = "http://sportsebooks.eu:888/api/getChannelList?"
+        # XBMC_HEADERS        = {'User-Agent': 'XBMC','ContentType': 'applicat
+        # XBMC_POST           = {"username": Prefs["username"],"userpassword":
+        #
+        # CHANNEL_LIST_JSON   = JSON.ObjectFromURL(URL_CHANNEL_JSON,XBMC_POST,
+        #
+        # Log(JSON.StringFromObject(CHANNEL_LIST_JSON))
+        #
+        # XBMC_POST_CHANNEL       = {"channel": "34", "platform": "XBMC", "use
+        # XBMC_USER_AGENT         = {"User-Agent": "XBMC"}
+        # XBMC_URL                = "http://sportsebooks.eu:888/api/setPlayer"
+        #
+        # CHANNEL_HTML            = HTTP.Request(url = XBMC_URL, values = XBMC_POST_CHANNEL, headers = XBMC_USER_AGENT).content
+        #
+        #Log(CHANNEL_HTML)
     
-        HTML_SOURCE                 = HTML.ElementFromURL(HTML_URL, headers = CUSTOM_HEADERS)  
+        # Construct CHANNEL_LIST_URL and grab HTML
+        CHANNEL_LIST_URL        = URL_BASE + URL_MEMBERS + URL_CHANNELMENU        
+        CHANNEL_LIST_SOURCE     = HTML.ElementFromURL(CHANNEL_LIST_URL)
+        
+        # Find the channel links in the HTML source with xPath
+        CHANNELS                = CHANNEL_LIST_SOURCE.xpath("//p/a")
     
-        # Find the channel links in the HTML source with xpath
-        CHANNELS                    = HTML_SOURCE.xpath("//a")
-    
-        # Remove the last element from the list
+        # Remove the last link from the CHANNELS list (the 'Return
+        # to desktop version' links)
         CHANNELS.pop()
+
+        Log(len(CHANNELS))
+
     
-        # Add each channel's text to CHANNEL_LIST
+        # Add each channel to CHANNEL_LIST
         for CHANNEL in CHANNELS:
-            # Grab the link text, and convert from list to string
+            # Grab the link text and convert from list to string
             # N.B. xpath ALWAYS returns a list
-            CHANNEL_NAME            = "".join(CHANNEL.xpath(".//text()"))
-            CHANNEL_URL             = URL_BASE + URL_MEMBERS + "".join(CHANNEL.xpath(".//@href"))
+            CHANNEL_TITLE       = "".join(CHANNEL.xpath(".//text()"))
+            CHANNEL_URL         = URL_BASE + URL_MEMBERS + "".join(CHANNEL.xpath(".//@href"))
             
-            # Grab the source from the Channel's URL – done inside here so we
+            # Extracts the actual video URL for a channel. We do it inside 
+            # this function so we can store it as part of CHANNEL_LIST and 
             # only do it once, not every time we hit the main menu
-            CHANNEL_SOURCE          = HTML.ElementFromURL(CHANNEL_URL, headers = CUSTOM_HEADERS)
-        
-            # Gets the relevant script that has the mediaplayer info in it, by using
-            # xPath to search for a script containing the string 'mediaplayer'
-            CHANNEL_SCRIPT            = CHANNEL_SOURCE.xpath("//script[contains(., 'mediaplayer')]//text()")[0]
+            CHANNEL_VIDEO       = GetChannelVideoStreamURL(CHANNEL_URL)
     
-            # Grabs the video URL via regex
-            CHANNEL_VIDEO           = re.findall(r'(http:\/\/[\d].*)\'',CHANNEL_SCRIPT)[0]
-        
             # Appends the channel details to the CHANNEL_LIST
-            CHANNEL_LIST.append([CHANNEL_NAME,CHANNEL_VIDEO])        
-    
+            CHANNEL_LIST.append([CHANNEL_TITLE,CHANNEL_VIDEO])
+        
+        CHANNEL_LIST.sort()
+        
         return CHANNEL_LIST
- 
- 
- 
+
+################################################################################
+# Extracts the actual video URL for a channel
+################################################################################
+def GetChannelVideoStreamURL(URL):
+    # Grab the source from the Channel's URL – done inside here so we
+    # only do it once, not every time we hit the main menu
+    CHANNEL_SOURCE          = HTML.ElementFromURL(URL)
+
+    # Gets the relevant script that has the mediaplayer info in it, by using
+    # xPath to search for a script containing the string 'mediaplayer'
+    CHANNEL_SCRIPT          = CHANNEL_SOURCE.xpath("//script[contains(., 'mediaplayer')]//text()")[0]
+
+    # Grabs the video URL via regex
+    CHANNEL_VIDEO           = re.findall(r'(http:\/\/[\d].*)\'',CHANNEL_SCRIPT)[0]
+
+    Log(CHANNEL_VIDEO)
+
+    return CHANNEL_VIDEO
+
 ################################################################################
 # Return Episode Object for Channel
 ################################################################################ 
@@ -205,62 +273,54 @@ def CreateChannelEpisodeObject(TITLE,URL,INCLUDE_CONTAINER=False):
         )
     else:
         return CHANNEL_OBJECT 
-   
-################################################################################
-# Authenticate the user
-################################################################################        
-def AuthenticateUser():    
-    # Create the login URL
-    LOGIN_URL                   = URL_BASE + URL_LOGIN
-    
-    # Set the post data
-    POST_DATA                   = {
-        "amember_login": Prefs["username"],
-        "amember_pass": Prefs["password"]
-    }
-    
-    # Grab the HTTP response to login attempt
-    CONTENT                     = HTTP.Request(url = LOGIN_URL, values = POST_DATA).content
-    
-    # Test to see if there's a login error message
-    if 'am-login-errors' in CONTENT:
-        # Sets Dict["Login"] to False on unsuccessful login attempt
-        Dict["Login"]           = False
-        
-        return False
-    else:
-        # Sets Dict["Login"] to True on successful login attempt
-        Dict["Login"]           = True
-        
-        return True
     
 ################################################################################
-# Alerts and error messages
+# Build the main menu
 ################################################################################ 
-# If successful login
-def SuccessLoggedIn():
-    return ObjectContainer(
-        header                  = "Success",
-        message                 = "You're now logged in"
-    )
+@handler(PREFIX, TITLE, thumb = ICON, art = ART)
 
-# If user tries to access submenus without logging in
-def ErrorNotLoggedIn():
-    return ObjectContainer(
-         header                 = "You're not logged in",
-         message                = "You need to be logged in to view streams"       
-    )
+def MainMenu():
+    # Check to see if the user is logged in or not, if they are build the main
+    # menu options, if not try to authenticate or show an error
+    if "Login" in Dict:
+        # Open an ObjectContainer for the main menu
+        MAIN_MENU               = ObjectContainer()
     
-# If login error
-def ErrorIncorrectLogin():
-    return ObjectContainer(
-        header                  = "Something went wrong",
-        message                 = "Your username and/or password are incorrect"
-    )
+        # Gets the channel list
+        CHANNELS                = GetChannelList()
 
-# If one or both of username or password are missing
-def ErrorMissingLogin():
-    return ObjectContainer(
-        header                  = "Something's missing",
-        message                 = "Your username and/or password is missing"
-    )
+        # Loop through each channel to produce an EpisodeObject
+        for CHANNEL in CHANNELS:
+            # Creates an EpisodeObject and adds it to the Main Menu
+            MAIN_MENU.add(
+                CreateChannelEpisodeObject(
+                    TITLE       = CHANNEL[0],
+                    URL         = CHANNEL[1]
+                )
+            )
+        
+        # Add the preferences object
+        MAIN_MENU.add(
+            PrefsObject(
+                title           = "Preferences",
+                thumb           = R("icon-preferences.png"),
+                summary         = "Enter your username and password\r\nThe plugin will not work without them"
+            )
+        )
+        
+        return MAIN_MENU
+        
+    else:
+        # Log the user in initially
+        AUTHENTICATE            = AuthenticateUser()
+        
+        if AUTHENTICATE is True:
+            # Return the main menu
+            MENU                = MainMenu()
+            
+            return MENU
+        else:
+            # Incorrect username or password error
+            ERROR_MESSAGE       = ErrorIncorrectLogin()
+            
+            return ERROR_MESSAGE
