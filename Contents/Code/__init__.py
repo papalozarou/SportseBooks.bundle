@@ -158,25 +158,6 @@ def GetChannelList():
     if CHANNEL_LIST:
         return CHANNEL_LIST
     else:
-        # The below was a test to see if I could use the JSON feed from the API
-        # That the XBMC version uses.
-        #
-        # URL_CHANNEL_JSON                = "http://sportsebooks.eu:888/api/getChannelList?"
-        # XBMC_HEADERS        = {'User-Agent': 'XBMC','ContentType': 'applicat
-        # XBMC_POST           = {"username": Prefs["username"],"userpassword":
-        #
-        # CHANNEL_LIST_JSON   = JSON.ObjectFromURL(URL_CHANNEL_JSON,XBMC_POST,
-        #
-        # Log(JSON.StringFromObject(CHANNEL_LIST_JSON))
-        #
-        # XBMC_POST_CHANNEL       = {"channel": "34", "platform": "XBMC", "use
-        # XBMC_USER_AGENT         = {"User-Agent": "XBMC"}
-        # XBMC_URL                = "http://sportsebooks.eu:888/api/setPlayer"
-        #
-        # CHANNEL_HTML            = HTTP.Request(url = XBMC_URL, values = XBMC_POST_CHANNEL, headers = XBMC_USER_AGENT).content
-        #
-        #Log(CHANNEL_HTML)
-    
         # Construct CHANNEL_LIST_URL and grab HTML
         CHANNEL_LIST_URL        = URL_BASE + URL_MEMBERS + URL_CHANNELMENU        
         CHANNEL_LIST_SOURCE     = HTML.ElementFromURL(CHANNEL_LIST_URL)
@@ -188,9 +169,6 @@ def GetChannelList():
         # to desktop version' links)
         CHANNELS.pop()
 
-        Log(len(CHANNELS))
-
-    
         # Add each channel to CHANNEL_LIST
         for CHANNEL in CHANNELS:
             # Grab the link text and convert from list to string
@@ -224,8 +202,6 @@ def GetChannelVideoStreamURL(URL):
 
     # Grabs the video URL via regex
     CHANNEL_VIDEO           = re.findall(r'(http:\/\/[\d].*)\'',CHANNEL_SCRIPT)[0]
-
-    Log(CHANNEL_VIDEO)
 
     return CHANNEL_VIDEO
 
