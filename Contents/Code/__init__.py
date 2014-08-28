@@ -181,8 +181,11 @@ def GetChannelList():
             # only do it once, not every time we hit the main menu
             CHANNEL_VIDEO       = GetChannelVideoStreamURL(CHANNEL_URL)
     
+            # Gets the correct channel thumbnail
+            CHANNEL_THUMB       = GetChannelThumb(CHANNEL_TITLE)
+    
             # Appends the channel details to the CHANNEL_LIST
-            CHANNEL_LIST.append([CHANNEL_TITLE,CHANNEL_VIDEO])
+            CHANNEL_LIST.append([CHANNEL_TITLE,CHANNEL_VIDEO,CHANNEL_THUMB])
         
         CHANNEL_LIST.sort()
         
@@ -206,9 +209,36 @@ def GetChannelVideoStreamURL(URL):
     return CHANNEL_VIDEO
 
 ################################################################################
+# Gets the correct thumb for the channel based on TITLE variable
+################################################################################
+def GetChannelThumb(TITLE):
+    # check the TITLE variable and act accordingly
+    if TITLE.startswith("At"):
+        THUMB                   = "at-the-races.png"
+        
+    elif TITLE.startswith("BT"):
+        THUMB                   = "bt-sport.png"
+    
+    elif TITLE.startswith("Racing"):
+        THUMB                   = "racing-uk.png"
+    
+    elif TITLE.startswith("Sky"):
+        THUMB                   = "sky-sports.png"
+    
+    elif TITLE.startswith("bein"):
+        THUMB                   = "bein-sports.png"
+        
+    else:
+        THUMB                   = ICON
+    
+    Log(THUMB)
+    
+    return THUMB    
+    
+################################################################################
 # Return Episode Object for Channel
 ################################################################################ 
-def CreateChannelEpisodeObject(TITLE,URL,INCLUDE_CONTAINER=False): 
+def CreateChannelEpisodeObject(TITLE,URL,THUMB,INCLUDE_CONTAINER=False): 
     # Creates a VideoClipObject, with the key being a callback, unsure why, but
     # this re-calling of the same function is necessary to get an object that
     # will play without a URL service.
@@ -221,10 +251,12 @@ def CreateChannelEpisodeObject(TITLE,URL,INCLUDE_CONTAINER=False):
             CreateChannelEpisodeObject,
             TITLE               = TITLE,
             URL                 = URL,
+            THUMB               = THUMB,
             INCLUDE_CONTAINER   = True
         ),
         rating_key              = TITLE,
         title                   = TITLE,
+        thumb                   = R(THUMB),
         items                   = [
             MediaObject(
                 video_resolution        = 360,
@@ -271,7 +303,8 @@ def MainMenu():
             MAIN_MENU.add(
                 CreateChannelEpisodeObject(
                     TITLE       = CHANNEL[0],
-                    URL         = CHANNEL[1]
+                    URL         = CHANNEL[1],
+                    THUMB       = CHANNEL[2]
                 )
             )
         
