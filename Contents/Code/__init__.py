@@ -1,6 +1,8 @@
 ################################################################################
 # Python Imports
 ################################################################################
+# This is only used to find the HLS video URL within the script on each channel
+# page 
 import re
 
 ################################################################################
@@ -175,17 +177,12 @@ def GetChannelList():
             # N.B. xpath ALWAYS returns a list
             CHANNEL_TITLE       = "".join(CHANNEL.xpath(".//text()"))
             CHANNEL_URL         = URL_BASE + URL_MEMBERS + "".join(CHANNEL.xpath(".//@href"))
-            
-            # Extracts the actual video URL for a channel. We do it inside 
-            # this function so we can store it as part of CHANNEL_LIST and 
-            # only do it once, not every time we hit the main menu
-            CHANNEL_VIDEO       = GetChannelVideoStreamURL(CHANNEL_URL)
     
             # Gets the correct channel thumbnail
             CHANNEL_THUMB       = GetChannelThumb(CHANNEL_TITLE)
     
             # Appends the channel details to the CHANNEL_LIST
-            CHANNEL_LIST.append([CHANNEL_TITLE,CHANNEL_VIDEO,CHANNEL_THUMB])
+            CHANNEL_LIST.append([CHANNEL_TITLE,CHANNEL_URL,CHANNEL_THUMB])
         
         CHANNEL_LIST.sort()
         
@@ -205,7 +202,7 @@ def GetChannelVideoStreamURL(URL):
 
     # Grabs the video URL via regex
     CHANNEL_VIDEO           = re.findall(r'(http:\/\/[\d].*)\'',CHANNEL_SCRIPT)[0]
-
+    
     return CHANNEL_VIDEO
 
 ################################################################################
@@ -231,8 +228,6 @@ def GetChannelThumb(TITLE):
     else:
         THUMB                   = ICON
     
-    Log(THUMB)
-    
     return THUMB    
     
 ################################################################################
@@ -242,6 +237,9 @@ def CreateChannelEpisodeObject(TITLE,URL,THUMB,INCLUDE_CONTAINER=False):
     # Creates a VideoClipObject, with the key being a callback, unsure why, but
     # this re-calling of the same function is necessary to get an object that
     # will play without a URL service.
+    #
+    # Using an @indirect for the video so that it's only asked for when the user
+    # decides to play that particular channel.
     #
     # N.B. HTTPLiveStreamURL automatically sets video_codec, audio_codec and 
     # protocol. Adding them back in causes the stream not to work on other
@@ -267,7 +265,10 @@ def CreateChannelEpisodeObject(TITLE,URL,THUMB,INCLUDE_CONTAINER=False):
                 parts                   =   [
                     PartObject(
                         key             = HTTPLiveStreamURL(
-                            url         = URL  
+                            Callback(
+                                PlayChannelVideo,
+                                URL     = URL
+                            ) 
                         )
                     )
                 ]
@@ -277,10 +278,25 @@ def CreateChannelEpisodeObject(TITLE,URL,THUMB,INCLUDE_CONTAINER=False):
     
     if INCLUDE_CONTAINER:
         return ObjectContainer(
-            objects               = [CHANNEL_OBJECT]
+            objects             = [CHANNEL_OBJECT]
         )
     else:
         return CHANNEL_OBJECT 
+
+################################################################################
+# Gets the actual HLS stream URL and plays the media – used so that we only
+# ask for the URL when the user is ready to play the video
+################################################################################
+@indirect
+def PlayChannelVideo(URL):
+    CHANNEL_VIDEO_URL           = GetChannelVideoStreamURL(URL)
+    
+    return IndirectResponse(
+        VideoClipObject,
+        key = HTTPLiveStreamURL(
+            url                 = CHANNEL_VIDEO_URL
+        )
+    )   
     
 ################################################################################
 # Build the main menu
