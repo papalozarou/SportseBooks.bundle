@@ -28,7 +28,7 @@ URL_CHANNELMENU                 = "channelmenuios.html"
 CHANNEL_LIST                    = []
 
 # THIS IS ONLY USED FOR LOGGING – DELETE
-STARS                           = "************"
+# STARS                           = "************"
 
 ################################################################################
 # Initialise the channel
@@ -137,7 +137,6 @@ def AuthenticateUser():
 
     # Test to see if we've successfully logged in
     if LOGIN_RESPONSE_TITLE == LOGIN_SUCCESS_TITLE:
-        Log(STARS + " LOGGED IN " + STARS)
         # If TITLE of returned page matches success title of pageset Dict["Login"] to True
         Dict["Login"]           = True
 
@@ -146,7 +145,6 @@ def AuthenticateUser():
 
         return True
     else:
-        Log(STARS + " NOT LOGGED IN " + STARS)
         # If we find the word errors within CONTENT, or CONTENT returns null, we
         # return false
         return False
@@ -183,9 +181,6 @@ def GetChannelList():
     
             # Appends the channel details to the CHANNEL_LIST
             CHANNEL_LIST.append([CHANNEL_TITLE,CHANNEL_URL,CHANNEL_THUMB])
-            
-            Log(CHANNEL_TITLE)
-            Log(CHANNEL_URL)
         
         CHANNEL_LIST.sort()
         
