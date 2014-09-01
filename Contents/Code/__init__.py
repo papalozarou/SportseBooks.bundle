@@ -117,33 +117,33 @@ def ValidatePrefs():
 def AuthenticateUser():
     # Construct login URL
     LOGIN_URL                   = URL_BASE + URL_LOGIN
-    
+
     # Page titles when user is logged in (LOGIN_SUCCESS_TITLE) or at login page
     # (LOGIN_FAILURE_TITLE), regardless of errors
     LOGIN_SUCCESS_TITLE         = "Sportsebooks"
     LOGIN_FAILURE_TITLE         = "Please login"
-    
+
     # Set the POST data to users login details
     POST_DATA                   = {
         "amember_login": Prefs["username"],
         "amember_pass": Prefs["password"]
     }
- 
+
     # Grab the HTTP response to login attempt
     LOGIN_RESPONSE_CONTENT      = HTML.ElementFromURL(url = LOGIN_URL, values = POST_DATA)
-    
+
     # Get the title string from the returned response
     LOGIN_RESPONSE_TITLE        = "".join(LOGIN_RESPONSE_CONTENT.xpath("//title/text()"))
-    
+
     # Test to see if we've successfully logged in
     if LOGIN_RESPONSE_TITLE == LOGIN_SUCCESS_TITLE:
         Log(STARS + " LOGGED IN " + STARS)
         # If TITLE of returned page matches success title of pageset Dict["Login"] to True
         Dict["Login"]           = True
-        
+
         # Save the dictionary immediately
         Dict.Save()
-        
+
         return True
     else:
         Log(STARS + " NOT LOGGED IN " + STARS)
@@ -183,6 +183,9 @@ def GetChannelList():
     
             # Appends the channel details to the CHANNEL_LIST
             CHANNEL_LIST.append([CHANNEL_TITLE,CHANNEL_URL,CHANNEL_THUMB])
+            
+            Log(CHANNEL_TITLE)
+            Log(CHANNEL_URL)
         
         CHANNEL_LIST.sort()
         
@@ -192,18 +195,27 @@ def GetChannelList():
 # Extracts the actual video URL for a channel
 ################################################################################
 def GetChannelVideoStreamURL(URL):
-    # Grab the source from the Channel's URL – done inside here so we
-    # only do it once, not every time we hit the main menu
-    CHANNEL_SOURCE          = HTML.ElementFromURL(URL)
+    # # Log user in as we can't access stream URLs without doing this again
+    AUTHENTICATE            = AuthenticateUser()
 
-    # Gets the relevant script that has the mediaplayer info in it, by using
-    # xPath to search for a script containing the string 'mediaplayer'
-    CHANNEL_SCRIPT          = CHANNEL_SOURCE.xpath("//script[contains(., 'mediaplayer')]//text()")[0]
+    if AUTHENTICATE is True:
+        # Grab the source from the Channel's URL – done inside here so we
+        # only do it once, not every time we hit the main menu
+        CHANNEL_SOURCE          = HTML.ElementFromURL(URL)
 
-    # Grabs the video URL via regex
-    CHANNEL_VIDEO           = re.findall(r'(http:\/\/[\d].*)\'',CHANNEL_SCRIPT)[0]
+        # Gets the relevant script that has the mediaplayer info in it, by using
+        # xPath to search for a script containing the string 'mediaplayer'
+        CHANNEL_SCRIPT          = CHANNEL_SOURCE.xpath("//script[contains(., 'mediaplayer')]//text()")[0]
+
+        # Grabs the video URL via regex
+        CHANNEL_VIDEO           = re.findall(r'(http:\/\/[\d].*)\'',CHANNEL_SCRIPT)[0]
     
-    return CHANNEL_VIDEO
+        return CHANNEL_VIDEO
+    else:
+        # Incorrect username or password error
+        ERROR_MESSAGE       = ErrorIncorrectLogin()
+
+        return ERROR_MESSAGE
 
 ################################################################################
 # Gets the correct thumb for the channel based on TITLE variable
